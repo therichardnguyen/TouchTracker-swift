@@ -12,25 +12,31 @@ import CoreGraphics
 
 class TouchDrawView: UIView {
     var linesInProgress: [NSValue:Line]
-    var completeLines: [Line]
+    var completeLines: [Line]?
     
     // constants
     let kLineWidth: CGFloat = 10.0
 
     override init(frame: CGRect) {
         linesInProgress = [NSValue:Line]()
-        completeLines = [Line]()
+        var archivePath = TouchDrawView.touchDrawArchivePath()
+        completeLines = NSKeyedUnarchiver.unarchiveObjectWithFile(archivePath) as? [Line]
+        if (completeLines == nil) {
+            completeLines = [Line]()
+        }
         
         super.init(frame: frame)
         
         self.backgroundColor = UIColor.whiteColor()
         self.multipleTouchEnabled = true
+        
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "save", name: UIApplicationDidEnterBackgroundNotification, object: nil)
     }
 
     required init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override func drawRect(rect: CGRect) {
         var context = UIGraphicsGetCurrentContext()
         CGContextSetLineWidth(context, kLineWidth)
@@ -39,7 +45,7 @@ class TouchDrawView: UIView {
         // Draw complete lines in black
         UIColor.blackColor().set()
         
-        for line in completeLines {
+        for line in completeLines! {
             CGContextMoveToPoint(context, line.begin.x, line.begin.y)
             CGContextAddLineToPoint(context, line.end.x, line.end.y)
             CGContextStrokePath(context)
@@ -98,7 +104,7 @@ class TouchDrawView: UIView {
             var key = NSValue(nonretainedObject: touch)
             
             if let line = linesInProgress[key] {
-                completeLines.append(line)
+                completeLines!.append(line)
                 linesInProgress.removeValueForKey(key)
             }
         }
@@ -107,9 +113,19 @@ class TouchDrawView: UIView {
     
     func clearAll() {
         linesInProgress.removeAll(keepCapacity: true)
-        completeLines.removeAll(keepCapacity: true)
+        completeLines!.removeAll(keepCapacity: true)
         setNeedsDisplay()
     }
     
+    
+    class func touchDrawArchivePath() -> String {
+        var documentDirectory : NSString! = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true)[0] as NSString
+        return documentDirectory.stringByAppendingPathComponent("currentDrawing.art")
+    }
+    
+    func save() -> Bool{
+        var imagePath = TouchDrawView.touchDrawArchivePath()
+        return NSKeyedArchiver.archiveRootObject(completeLines!, toFile: imagePath)
+    }
     
 }
