@@ -13,6 +13,7 @@ import CoreGraphics
 class TouchDrawView: UIView {
     var linesInProgress: [NSValue:Line]
     var completeLines: [Line]?
+    var selectedLine:Line?
     
     // constants
     let kLineWidth: CGFloat = 10.0
@@ -31,6 +32,8 @@ class TouchDrawView: UIView {
         self.multipleTouchEnabled = true
         
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "save", name: UIApplicationDidEnterBackgroundNotification, object: nil)
+        var tapRecognizer = UITapGestureRecognizer(target: self, action: "tap:")
+        addGestureRecognizer(tapRecognizer)
     }
 
     required init(coder aDecoder: NSCoder) {
@@ -61,6 +64,21 @@ class TouchDrawView: UIView {
             CGContextAddLineToPoint(context, line.end.x, line.end.y)
             CGContextStrokePath(context)
         }
+        
+        if selectedLine != nil {
+            UIColor.greenColor().set()
+            CGContextMoveToPoint(context, selectedLine!.begin.x, selectedLine!.begin.y)
+            CGContextAddLineToPoint(context, selectedLine!.end.x, selectedLine!.end.y)
+            CGContextStrokePath(context)
+        }
+    }
+    
+    
+    func tap(gr:UIGestureRecognizer) {
+        var point:CGPoint = gr .locationInView(self)
+        selectedLine = lineAtPoint(point)
+        linesInProgress.removeAll(keepCapacity: true)
+        setNeedsDisplay()
     }
     
     override func touchesBegan(touches: NSSet!, withEvent event: UIEvent!) {
@@ -117,6 +135,23 @@ class TouchDrawView: UIView {
         setNeedsDisplay()
     }
     
+    func lineAtPoint(point : CGPoint) -> Line? {
+        for line in completeLines! {
+            var start = line.begin
+            var end = line.end
+            
+            var t: CGFloat
+            for t = 0.0; t <= 1.0; t += 0.5 {
+                var x = start.x + t * (end.x - start.x)
+                var y = start.y + t * (end.y - start.y)
+                
+                if hypot(x - point.x, y - point.y) < 20.0 {
+                    return line
+                }
+            }
+        }
+        return nil
+    }
     
     class func touchDrawArchivePath() -> String {
         var documentDirectory : NSString! = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.UserDomainMask, true)[0] as NSString
